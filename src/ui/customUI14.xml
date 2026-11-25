@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="modRibbon.OnRibbonLoad">
+  <ribbon>
+    <tabs>
+      <tab id="tabSoanThao" label="Soạn thảo chuẩn">
+        <group id="grpHoSo" label="Hồ sơ">
+          <dropDown id="ddProfile" label="Loại văn bản" sizeString="Quy định nội bộ"
+                    getSelectedItemID="modRibbon.GetProfileId" onAction="modRibbon.OnProfileSelect">
+            <item id="HopDong" label="Hợp đồng"/>
+            <item id="QuyDinh" label="Quy định nội bộ"/>
+            <item id="CongVan" label="Công văn"/>
+          </dropDown>
+          <button id="btnEditProfile" label="Sửa hồ sơ…" onAction="modRibbon.OnEditProfile" imageMso="PropertiesEdit"/>
+        </group>
+        <group id="grpCap" label="Đánh số">
+          <button id="lvl1" tag="1" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <button id="lvl2" tag="2" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <button id="lvl3" tag="3" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <button id="lvl4" tag="4" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <button id="lvl5" tag="5" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <button id="lvl6" tag="6" getLabel="modRibbon.GetLevelLabel" getVisible="modRibbon.GetLevelVisible" onAction="modRibbon.OnLevel" imageMso="NumberingGallery"/>
+          <separator id="sepCap"/>
+          <button id="btnUp" label="Tăng cấp" tag="1" onAction="modRibbon.OnChangeLevel" imageMso="IndentIncrease"/>
+          <button id="btnDown" label="Giảm cấp" tag="-1" onAction="modRibbon.OnChangeLevel" imageMso="IndentDecrease"/>
+        </group>
+        <group id="grpChuyen" label="Chuyển đổi">
+          <button id="btnConvert" label="Số gõ tay → tự động" size="large" onAction="modRibbon.OnConvertTyped" imageMso="NumberingRestart"/>
+        </group>
+        <group id="grpToc" label="Mục lục">
+          <button id="btnTocInsert" label="Chèn mục lục" size="large" onAction="modRibbon.OnInsertToc" imageMso="TableOfContentsDialog"/>
+          <button id="btnTocUpdate" label="Cập nhật mục lục" onAction="modRibbon.OnUpdateToc" imageMso="TableOfContentsUpdateTable"/>
+        </group>
+        <group id="grpRef" label="Dẫn chiếu">
+          <button id="btnRefCheck" label="Kiểm tra dẫn chiếu" size="large" onAction="modRibbon.OnCheckRefs" imageMso="ReviewCheckSpelling"/>
+          <button id="btnRefNext" label="Lỗi tiếp theo" onAction="modRibbon.OnNextRef" imageMso="ReviewNextComment"/>
+          <button id="btnRefConvert" label="Chuyển thành tự động" onAction="modRibbon.OnConvertRefs" imageMso="CrossReferenceInsert"/>
+          <button id="btnRefUpdate" label="Cập nhật dẫn chiếu" onAction="modRibbon.OnUpdateRefs" imageMso="UpdateTableOfContents"/>
+          <button id="btnRefInsert" label="Chèn dẫn chiếu Điều…" onAction="modRibbon.OnInsertRef" imageMso="CrossReferenceInsert"/>
+        </group>
+        <group id="grpSpell" label="Chính tả">
+          <button id="btnSpellCheck" label="Kiểm tra chính tả" size="large" onAction="modRibbon.OnCheckSpell" imageMso="Spelling"/>
+          <button id="btnSpellNext" label="Lỗi tiếp theo" onAction="modRibbon.OnNextSpell" imageMso="ReviewNextComment"/>
+        </group>
+        <group id="grpChuan" label="Chuẩn hóa">
+          <dropDown id="ddStd" label="Chuẩn" sizeString="NĐ 30/2020"
+                    getSelectedItemID="modRibbon.GetStdId" onAction="modRibbon.OnStdSelect">
+            <item id="ND30" label="NĐ 30/2020"/>
+            <item id="ISO9001" label="ISO 9001"/>
+          </dropDown>
+          <button id="btnNormalize" label="Chuẩn hóa trang &amp; phông" size="large" onAction="modRibbon.OnNormalize" imageMso="PageSetupDialog"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
