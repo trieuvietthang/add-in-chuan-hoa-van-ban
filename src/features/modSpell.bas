@@ -33,7 +33,19 @@ Private mN As Long
 Private mW2() As String
 Private mW2N As Long
 Private mLoaded As Boolean
-Private mBi As Object
+' Bang cap am tiet: bang bam dia chi mo bang mang (Scripting.Dictionary cham han khi >100k muc: nap ~5x, tra ~3x)
+Private mBK() As String
+Private mBV() As Long
+Private mBMask As Long
+' Ghi nho ket qua theo chu goc trong mot lan kiem tra (tu: W3, cap: W5) - van ban lap lai tu rat nhieu
+Private mTK() As String
+Private mTV() As String
+Private mTMask As Long
+Private mTN As Long
+Private mPK() As String
+Private mPV() As String
+Private mPMask As Long
+Private mPN As Long
 Private mVar As Object
 Private mBiLoaded As Boolean
 Private mW5On As Boolean
@@ -302,13 +314,13 @@ Private Function IsUpperCh(ByVal ch As String) As Boolean
     IsUpperCh = (UCase$(ch) = ch And LCase$(ch) <> ch)
 End Function
 
-Private Function IsLetS(ByVal c As String, ByVal i As Long) As Boolean
+Private Function IsLetS(ByRef c As String, ByVal i As Long) As Boolean
     If i < 1 Or i > Len(c) Then Exit Function
     IsLetS = IsLetterW(AscW(Mid$(c, i, 1)))
 End Function
 
 ' Cum giua hai khoang trang quanh vi tri i co phai dia chi web/email/duong dan
-Private Function IsUrlish(ByVal c As String, ByVal i As Long) As Boolean
+Private Function IsUrlish(ByRef c As String, ByVal i As Long) As Boolean
     Dim a As Long, b As Long, chunk As String
     a = i: b = i
     Do While a > 1
@@ -323,7 +335,7 @@ Private Function IsUrlish(ByVal c As String, ByVal i As Long) As Boolean
     IsUrlish = (InStr(chunk, "@") > 0 Or InStr(chunk, "http") > 0 Or InStr(chunk, "www") > 0 Or InStr(chunk, "\") > 0 Or InStr(chunk, "/") > 0)
 End Function
 
-Private Function WordLenBack(ByVal c As String, ByVal i As Long) As Long
+Private Function WordLenBack(ByRef c As String, ByVal i As Long) As Long
     Do While i >= 1
         If Not IsLetS(c, i) Then Exit Do
         WordLenBack = WordLenBack + 1
@@ -331,7 +343,7 @@ Private Function WordLenBack(ByVal c As String, ByVal i As Long) As Long
     Loop
 End Function
 
-Private Function BoundaryOk(ByVal c As String, ByVal s As Long, ByVal e As Long) As Boolean
+Private Function BoundaryOk(ByRef c As String, ByVal s As Long, ByVal e As Long) As Boolean
     ' s..e-1 la doan khop; hai ben khong duoc la chu cai
     BoundaryOk = (Not IsLetS(c, s - 1)) And (Not IsLetS(c, e))
 End Function
@@ -425,7 +437,7 @@ Private Sub ScanTyp(ByVal c As String, ByVal base As Long)
     Loop
 End Sub
 
-Private Function IsListMark(ByVal c As String, ByVal i As Long) As Boolean
+Private Function IsListMark(ByRef c As String, ByVal i As Long) As Boolean
     Dim j As Long, m As Long, ln As Long, ch As String
     j = i - 1
     Do While j >= 1
@@ -575,12 +587,50 @@ Private Sub FinishW2()
 End Sub
 
 ' ---------- tang 5: cap am tiet la (W5) ----------
+' ---------- bang bam dia chi mo (khoa String khac rong, so sanh nhi phan) ----------
+Private Function HashS(ByRef k As String) As Long
+    Dim b() As Byte, i As Long, h As Long
+    b = k
+    For i = 0 To UBound(b) Step 2
+        h = ((h * 31) + b(i) + b(i + 1) * 7) And &HFFFFF
+    Next i
+    HashS = h
+End Function
+
+' Vi tri cua khoa k trong bang (o chua k, hoac o trong dau tien neu chua co). Bang phai con o trong.
+Private Function HSlot(ByRef tk() As String, ByVal mask As Long, ByRef k As String) As Long
+    Dim p As Long
+    p = HashS(k) And mask
+    Do While Len(tk(p)) > 0
+        If tk(p) = k Then Exit Do
+        p = (p + 1) And mask
+    Loop
+    HSlot = p
+End Function
+
+' So lan cua cap "a b" trong ngu lieu; -1 neu khong co
+Private Function BiCount(ByRef k As String) As Long
+    Dim p As Long
+    p = HSlot(mBK, mBMask, k)
+    If Len(mBK(p)) > 0 Then BiCount = mBV(p) Else BiCount = -1
+End Function
+
+Private Sub ResetTokMemo()
+    mTMask = &H7FFF&: mTN = 0     ' hau to & bat buoc: &HFFFF khong co & la Integer = -1
+    ReDim mTK(0 To mTMask): ReDim mTV(0 To mTMask)
+End Sub
+
+Private Sub ResetPairMemo()
+    mPMask = &HFFFF&: mPN = 0
+    ReDim mPK(0 To mPMask): ReDim mPV(0 To mPMask)
+End Sub
+
 ' Du lieu: config\bigram.vi.txt ("u<TAB>am_tiet<TAB>n" va "b<TAB>a b<TAB>n"). Tuy chon: thieu tep thi bo qua W5.
 Private Sub LoadBigrams()
-    Dim f As String, a() As String, i As Long, ln As String, t As Long, nm As String, n As Long, k As String
+    Dim f As String, a() As String, i As Long, ln As String, t As Long, nm As String, n As Long, k As String, sz As Long, nb As Long
     mBiLoaded = True
-    Set mBi = CreateObject("Scripting.Dictionary")
-    mBi.CompareMode = 0
+    mBMask = 0
+    ReDim mBK(0 To 0): ReDim mBV(0 To 0)
     Set mVar = CreateObject("Scripting.Dictionary")
     mVar.CompareMode = 0
     Set mUni = CreateObject("Scripting.Dictionary")
@@ -594,6 +644,13 @@ Private Sub LoadBigrams()
     If Len(Dir$(f)) = 0 Then mW5On = False
     If Not mW5On Then Exit Sub
     a = Split(modConfig.ReadUtf8(f), vbLf)
+    ' kich thuoc luy thua 2, >= 3 lan so dong (ty le lap day <= 1/3), toi da 2^20 (gioi han cua HashS)
+    sz = 1024
+    Do While sz < (UBound(a) + 1) * 3 And sz < &H100000
+        sz = sz * 2
+    Loop
+    mBMask = sz - 1
+    ReDim mBK(0 To mBMask): ReDim mBV(0 To mBMask)
     For i = 0 To UBound(a)
         ln = a(i)
         If Len(ln) > 4 Then
@@ -603,7 +660,13 @@ Private Sub LoadBigrams()
                 nm = Mid$(ln, 3, t - 3)
                 n = CLng(Mid$(ln, t + 1))
                 If Left$(ln, 1) = "b" Then
-                    mBi(nm) = n
+                    t = HSlot(mBK, mBMask, nm)
+                    If Len(mBK(t)) = 0 Then
+                        ' bang day toi 3/4 (chi khi tep > ~1,4 trieu dong): bo qua cap moi thay vi lap vo han
+                        If nb < (mBMask \ 4) * 3 Then mBK(t) = nm: mBV(t) = n: nb = nb + 1
+                    Else
+                        mBV(t) = n
+                    End If
                 Else
                     mUni(nm) = n
                     k = Plain(nm)
@@ -631,43 +694,61 @@ Private Sub BestAlt(ByVal w As String, ByVal other As String, ByVal isLeft As Bo
     For i = 0 To UBound(v)
         If v(i) <> w And mUni(v(i)) >= u0 * mW5Ratio Then
             If isLeft Then key = v(i) & " " & other Else key = other & " " & v(i)
-            If mBi.Exists(key) Then
-                n = mBi(key)
-                If n > bestN Then bestN = n: bestW = v(i)
-            End If
+            n = BiCount(key)
+            If n > bestN Then bestN = n: bestW = v(i)
         End If
     Next i
 End Sub
 
 ' Cap am tiet hop le nhung khong co trong ngu lieu, trong khi doi dau/ma o mot am tiet cho ra cap pho bien -> nghi go sai dau
-Private Sub CheckPair(ByVal c As String, ByVal base As Long, ByVal s1 As Long, ByVal e1 As Long, ByVal s2 As Long, ByVal e2 As Long)
-    Dim x As String, y As String, a As String, b As String, n1 As Long, n2 As Long, w1 As String, w2 As String
+Private Sub CheckPair(ByRef c As String, ByVal base As Long, ByVal s1 As Long, ByVal e1 As Long, ByVal s2 As Long, ByVal e2 As Long)
+    Dim x As String, y As String, k As String, p As Long, r As String
     x = Mid$(c, s1, e1 - s1): y = Mid$(c, s2, e2 - s2)
-    If Len(x) < 2 Or Len(y) < 2 Then Exit Sub
-    If x = UCase$(x) Or y = UCase$(y) Then Exit Sub
-    a = LCase$(x): b = LCase$(y)
-    If a = b Then Exit Sub
-    If mBi.Exists(a & " " & b) Then Exit Sub
-    If mIgnore.Exists(a) Or mIgnore.Exists(b) Or mIgnore.Exists(a & " " & b) Then Exit Sub
-    If Not SyllCached(a) Then Exit Sub
-    If Not SyllCached(b) Then Exit Sub
+    k = x & " " & y
+    p = HSlot(mPK, mPMask, k)
+    If Len(mPK(p)) > 0 Then
+        r = mPV(p)
+    Else
+        r = PairVerdict(x, y)
+        If mPN >= mPMask \ 2 Then
+            ResetPairMemo
+            p = HSlot(mPK, mPMask, k)
+        End If
+        mPK(p) = k: mPV(p) = r: mPN = mPN + 1
+    End If
+    If Len(r) = 0 Then Exit Sub
+    ' phan phu thuoc vi tri (dinh so/ky hieu, chong bao trung) - khong ghi nho
     If Glued(c, s1, e1) Or Glued(c, s2, e2) Then Exit Sub
-    BestAlt a, b, True, n1, w1
-    BestAlt b, a, False, n2, w2
-    If n1 < mW5Min And n2 < mW5Min Then Exit Sub
-    If n1 >= n2 Then
+    If Left$(r, 1) = "1" Then
         If s1 <= mLastW5 Then Exit Sub
-        Emit "W5", base, s1, e1, w1 & " " & b
+        Emit "W5", base, s1, e1, Mid$(r, 2)
         mLastW5 = e1
     Else
         If s2 <= mLastW5 Then Exit Sub
-        Emit "W5", base, s2, e2, a & " " & w2
+        Emit "W5", base, s2, e2, Mid$(r, 2)
         mLastW5 = e2
     End If
 End Sub
 
+' Phan chi phu thuoc chu cua cap: "" = khong nghi; "1<goi y>" = nghi am tiet trai; "2<goi y>" = nghi am tiet phai
+Private Function PairVerdict(ByVal x As String, ByVal y As String) As String
+    Dim a As String, b As String, n1 As Long, n2 As Long, w1 As String, w2 As String
+    If Len(x) < 2 Or Len(y) < 2 Then Exit Function
+    If x = UCase$(x) Or y = UCase$(y) Then Exit Function
+    a = LCase$(x): b = LCase$(y)
+    If a = b Then Exit Function
+    If BiCount(a & " " & b) >= 0 Then Exit Function
+    If mIgnore.Exists(a) Or mIgnore.Exists(b) Or mIgnore.Exists(a & " " & b) Then Exit Function
+    If Not SyllCached(a) Then Exit Function
+    If Not SyllCached(b) Then Exit Function
+    BestAlt a, b, True, n1, w1
+    BestAlt b, a, False, n2, w2
+    If n1 < mW5Min And n2 < mW5Min Then Exit Function
+    If n1 >= n2 Then PairVerdict = "1" & w1 & " " & b Else PairVerdict = "2" & a & " " & w2
+End Function
+
 ' ---------- tang 3 + lap tu ----------
-Private Function Glued(ByVal c As String, ByVal s As Long, ByVal e As Long) As Boolean
+Private Function Glued(ByRef c As String, ByVal s As Long, ByVal e As Long) As Boolean
     Dim p As String, q As String
     If s > 1 Then p = Mid$(c, s - 1, 1)
     If e <= Len(c) Then q = Mid$(c, e, 1)
@@ -677,10 +758,28 @@ Private Function Glued(ByVal c As String, ByVal s As Long, ByVal e As Long) As B
     If q = "." And IsLetS(c, e + 1) Then Glued = True
 End Function
 
-Private Function TokenBad(ByVal c As String, ByVal s As Long, ByVal e As Long) As Boolean
-    Dim txt As String, lw As String, i As Long, hasHi As Boolean, r As String
+Private Function TokenBad(ByRef c As String, ByVal s As Long, ByVal e As Long) As Boolean
+    Dim txt As String, p As Long, r As String
     If e - s < 2 Then Exit Function
     txt = Mid$(c, s, e - s)
+    p = HSlot(mTK, mTMask, txt)
+    If Len(mTK(p)) > 0 Then
+        r = mTV(p)
+    Else
+        If TokenTextBad(txt) Then r = "1" Else r = "0"
+        If mTN >= mTMask \ 2 Then
+            ResetTokMemo
+            p = HSlot(mTK, mTMask, txt)
+        End If
+        mTK(p) = txt: mTV(p) = r: mTN = mTN + 1
+    End If
+    ' phan phu thuoc vi tri - khong ghi nho
+    If r = "1" Then TokenBad = Not Glued(c, s, e)
+End Function
+
+' Phan chi phu thuoc chu cua am tiet (W3)
+Private Function TokenTextBad(ByVal txt As String) As Boolean
+    Dim lw As String, i As Long, hasHi As Boolean, r As String
     If txt = UCase$(txt) Then Exit Function
     If txt <> LCase$(txt) Then
         If Mid$(txt, 2) <> LCase$(Mid$(txt, 2)) Then Exit Function
@@ -692,14 +791,7 @@ Private Function TokenBad(ByVal c As String, ByVal s As Long, ByVal e As Long) A
     Next i
     If Not hasHi Then Exit Function
     If mIgnore.Exists(lw) Then Exit Function
-    If Glued(c, s, e) Then Exit Function
-    If mCache.Exists(lw) Then
-        TokenBad = (mCache(lw) = "0")
-        Exit Function
-    End If
-    If CheckSyll(lw) Then r = "1" Else r = "0"
-    mCache(lw) = r
-    TokenBad = (r = "0")
+    TokenTextBad = Not SyllCached(lw)
 End Function
 
 Private Sub ScanTokens(ByVal c As String, ByVal base As Long)
@@ -727,11 +819,13 @@ Private Sub ScanTokens(ByVal c As String, ByVal base As Long)
         If k < tn Then
             If te(k) + 1 = ts(k + 1) And Mid$(c, te(k), 1) = " " Then
                 If mW5On Then CheckPair c, base, ts(k), te(k), ts(k + 1), te(k + 1)
-                w1 = LCase$(Mid$(c, ts(k), te(k) - ts(k)))
-                w2 = LCase$(Mid$(c, ts(k + 1), te(k + 1) - ts(k + 1)))
-                If w1 = w2 And Len(w1) >= 2 Then
-                    If Not mDupOk.Exists(w1 & " " & w2) Then
-                        If Not Glued(c, ts(k), te(k)) And Not Glued(c, ts(k + 1), te(k + 1)) Then Emit "S4", base, ts(k), te(k + 1), ""
+                If te(k) - ts(k) = te(k + 1) - ts(k + 1) Then
+                    w1 = LCase$(Mid$(c, ts(k), te(k) - ts(k)))
+                    w2 = LCase$(Mid$(c, ts(k + 1), te(k + 1) - ts(k + 1)))
+                    If w1 = w2 And Len(w1) >= 2 Then
+                        If Not mDupOk.Exists(w1 & " " & w2) Then
+                            If Not Glued(c, ts(k), te(k)) And Not Glued(c, ts(k + 1), te(k + 1)) Then Emit "S4", base, ts(k), te(k + 1), ""
+                        End If
                     End If
                 End If
             End If
@@ -777,6 +871,8 @@ Public Function CheckSpell(ByVal doc As Document, Optional ByVal profile As Stri
     Dim tocS() As Long, tocE() As Long, tocN As Long, i As Long, skip As Boolean, tc As TableOfContents, ln() As String
     LoadCfg
     If Not mBiLoaded Then LoadBigrams
+    ResetTokMemo
+    ResetPairMemo
     mN = 0: mW2N = 0
     ReDim mOut(0 To 255): ReDim mKey(0 To 255): ReDim mW2(0 To 63)
     tocN = doc.TablesOfContents.Count

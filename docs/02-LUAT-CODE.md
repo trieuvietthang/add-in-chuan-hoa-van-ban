@@ -53,6 +53,11 @@
 - Duyệt `Paragraphs` bằng `For Each` hoặc lấy `Range` rồi `.Paragraphs`, tránh `Paragraphs(i)` trong vòng lặp lớn (O(n²)).
 - Gom thay đổi: áp Style cho cả `Range` thay vì từng đoạn khi có thể.
 - Lệnh trên văn bản > 500 đoạn hiện `StatusBar` tiến độ; có thể hủy bằng `DoEvents`+cờ.
+- `Scripting.Dictionary` chậm hẳn khi chứa hàng chục nghìn mục trở lên (đo 2026-11-26: thêm 136 nghìn khóa 2,0 s, tra 9 µs/lần so với 1 µs ở dict 1.000 mục). Bảng lớn (bigram) dùng bảng băm địa chỉ mở bằng mảng (`HashS`/`HSlot` trong `modSpell`).
+- Hàm gọi theo từng từ/ký tự nhận chuỗi đoạn văn `ByRef` (chỉ đọc), tránh sao chép cả đoạn mỗi lần gọi (O(n²) với đoạn dài).
+- Kết quả chỉ phụ thuộc chữ (âm tiết, cặp âm tiết) thì ghi nhớ theo chữ trong một lần chạy; phần phụ thuộc vị trí (`Glued`, chống báo trùng) tính riêng, không ghi nhớ.
+- Hằng hex trong VBA: `&HFFFF` là Integer = **-1**; giá trị ≥ &H8000 phải có hậu tố Long `&` (`&HFFFF&`).
+- Đo hiệu năng trên laptop dao động 2–3 lần theo tải/nhiệt; giữ mức thường ≤ một nửa ngưỡng KB-E1 để test không chập chờn.
 
 ## 9. Checklist tự review trước khi giao
 - [ ] `Option Explicit`, không còn biến Variant ngầm.
