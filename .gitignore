@@ -1,0 +1,18 @@
+# Sản phẩm build (tools/build.ps1) và gói phát hành (tools/package.ps1) - phát hành qua Releases kèm chữ ký số
+dist/
+*.zip
+
+# Tệp tạm/khóa của Word, Office
+~$*
+*.tmp
+*.wbk
+
+# Bản sao lưu cấu hình do form "Sửa hồ sơ" tạo
+*.bak
+
+# Rác hệ điều hành / trình soạn thảo
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

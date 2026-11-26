@@ -53,7 +53,7 @@ Không so byte `.docx`. `tools/inspect.ps1` xuất JSON gồm, theo từng đo�
 4. **Nội dung chữ không đổi**: so chuỗi text (đã bỏ số đầu dòng) trước/sau.
 5. **Phức tạp**: `fx-phuc-tap.docx` không mất bảng/ảnh/footnote/comment; track changes không bị chấp nhận/loại bỏ ngầm.
 6. **Biên**: tài liệu trống, 1 đoạn, vùng chọn rỗng, vùng chọn nằm trong bảng.
-7. **Hiệu năng** (KB-E1): đo thời gian, in ra, fail nếu quá ngưỡng.
+7. **Hiệu năng** (KB-E1): đo thời gian, in ra, fail nếu quá ngưỡng. Chính tả đo cả lần chạy lặp lại và **lần đầu trong phiên** (gọi `modSpell.ResetConfig` trước để nạp lại cấu hình + bảng bigram, như lần bấm đầu tiên của người dùng).
 
 ## 7. Báo cáo test
 Mỗi lần chạy in:

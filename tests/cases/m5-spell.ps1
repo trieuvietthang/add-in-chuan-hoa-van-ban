@@ -78,6 +78,12 @@ function Invoke-M5Tests($w) {
         $o3 = [string](Invoke-Macro $w 'modApi.CheckSpellDoc' @([string]$d2.Name, 'HopDong'))
         $sw.Stop()
         Add-Res 'KB-E1 3000-doan' (($sw.Elapsed.TotalSeconds -le 5) -and ($o3 -eq '')) ("{0:N1}s [{1}]" -f $sw.Elapsed.TotalSeconds, $o3)
+        # Lần đầu trong phiên Word: phải nạp lại cấu hình + bảng bigram (người dùng gặp ở lần bấm đầu tiên)
+        [void](Invoke-Macro $w 'modSpell.ResetConfig' @())
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        $o4 = [string](Invoke-Macro $w 'modApi.CheckSpellDoc' @([string]$d2.Name, 'HopDong'))
+        $sw.Stop()
+        Add-Res 'KB-E1 3000-doan-lan-dau' (($sw.Elapsed.TotalSeconds -le 5) -and ($o4 -eq '')) ("{0:N1}s [{1}]" -f $sw.Elapsed.TotalSeconds, $o4)
         $d2.Close(0)
     } catch { Add-Res 'M5 harness' $false $_.Exception.Message }
     return $res
